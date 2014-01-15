@@ -8,14 +8,16 @@
   },
   "license": "MIT",
   "dependencies": {
-    "voxel-engine": "~0.20.0",
-    "voxel-player": "~0.1.0"
+    "voxel-engine": "0.20.0",
+    "voxel-player": "0.1.0"
   },
   "devDependencies": {
     "browserify": "3.19.1",
-    "beefy": "0.7.1"
+    "beefy": "0.7.1",
+    "coffeeify": "0.5.1"
   },
   "scripts": {
-    "start": "cd public/ && beefy simple.js 3000"
+    "start": "cd public/ && beefy simple.js 3000",
+    "three": "cd public/three/ && beefy three.coffee 4000 -- -t coffeeify"
   }
 }
