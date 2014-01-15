@@ -1,4 +1,4 @@
-log = -> console.log.apply console, arguments
+window.log = log = -> console.log.apply console, arguments
 
 THREE = window.THREE
 Mesher = require './mesher.coffee'
@@ -14,38 +14,63 @@ class Game
 
       @camera = @createCamera()
   
-      @controls = @createControls()    
-      
       @scene = @createScene()
   
+      @controls = @createControls()
+      
       @renderer = @createRenderer()    
       
       @stats = @createStats()
 
+      @ray = @createRay()
+
       window.addEventListener "resize", @onWindowResize, false
       
-      @animate()  
+      @animate()
+
+  getCameraYAt: (x, z) ->
+    {voxelSize} = @map.config
+
+    y = (@map.getY(x, z) * voxelSize) + voxelSize * 2
+
+    y
 
   createCamera: ->
     {THREE} = this
-    {voxelSize} = @map.config
     
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 20000)
-    camera.position.y = (@map.getY(0, 0) * voxelSize) + voxelSize
+    new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 20000)
+
+  createRay: ->
+    {THREE} = this
     
-    camera
+    ray = new THREE.Raycaster()
+    ray.ray.direction.set 0, -1, 0
+
+    ray
 
   createControls: ->
     {THREE} = this
 
-    controls = new THREE.FirstPersonControls(@camera)
-    controls.movementSpeed = 1000
-    controls.lookSpeed = 0.125
-    controls.lookVertical = true
-    controls.constrainVertical = true
-    controls.verticalMin = 1.1
-    controls.verticalMax = 2.2
-    
+    element = document.body
+    pointerlockchange = (event) =>
+      # todo: toggle instructions
+      @controls.enabled = document.pointerLockElement is element or document.mozPointerLockElement is element or document.webkitPointerLockElement is element
+
+    for vendor in ['', 'moz', 'webkit']
+      document.addEventListener "#{vendor}pointerlockchange", pointerlockchange, false
+      element.requestPointerLock = element.requestPointerLock or element["#{vendor}RequestPointerLock"]
+
+    # todo: request fullscreen first for firefox
+    element.addEventListener 'click', (e) ->
+      element.requestPointerLock()
+    , false
+
+    controls = new THREE.PointerLockControls @camera
+
+    controls.getObject().position.y = @getCameraYAt 0, 0
+
+    @scene.add controls.getObject()
+
     controls
 
   createScene: ->
@@ -89,17 +114,24 @@ class Game
 
     @renderer.setSize innerWidth, innerHeight
 
-    @controls.handleResize()
-  
   animate: ->
     window.requestAnimationFrame game.animate
     game.render()
 
+  updateControls: ->
+    {voxelSize} = @map.config
+    {x, z} = @controls.getObject().position
+    x = Math.floor(x / voxelSize)
+    z = Math.floor(z / voxelSize)
+    floor = @getCameraYAt x, z
+    @controls.update @clock.getDelta() * 1000, floor
+
   render: ->
     @stats.update()
-    @map.updateChunks(@camera.position)
-    @controls.update @clock.getDelta()
+    @map.updateChunks(@controls.getObject().position)
+    @updateControls()
     @renderer.render @scene, @camera
+
 
 class Map
   constructor: (@game, params) ->
@@ -112,6 +144,7 @@ class Map
     @config = {chunkSize, voxelSize, chunkDistance}
 
     @chunks = {}
+    @chunkArray = []
 
     @mesher = new Mesher {THREE, voxelSize, chunkSize}
     
@@ -192,6 +225,8 @@ class Map
       xArray: [startX...endX]
       getY: (x, z) => @getY(x, z)
 
+    @chunkArray.push mesh
+
     game.scene.add mesh
 
   deleteChunk: (chunkX, chunkZ) ->
@@ -199,6 +234,10 @@ class Map
     if mesh
       @game.scene.remove(mesh)
       delete @chunks["#{chunkX},#{chunkZ}"]
+
+      index = @chunkArray.indexOf mesh
+      @chunkArray.splice(index, 1) unless index < 0
+
       mesh.geometry.dispose()
       delete mesh.data
       delete mesh.geometry
