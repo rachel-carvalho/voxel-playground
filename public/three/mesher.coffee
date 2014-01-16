@@ -172,19 +172,34 @@ class Mesher
     diffPZ = h - pz
     diffNZ = h - nz
 
-    p = x: 151, z: 463
     if diffPX > 0 or x is first
-      vertices = [
-        [0, 0, pxpz > px and x > first]
-        [0, 2, pxnz > px and x > first]
-        [1, 2, pxnz > px and x > first]
-      ]
+      pzIsSameOrHigher = pz >= h
+      pxpzIsSameOrHigher = pxpz >= h
 
+      shadows = 
+        topRight: pxnz > px and px is h - 1 and x > first
+        topLeft: pzIsSameOrHigher and pxpzIsSameOrHigher
+      vertices = []
+
+      
       if diffPX > 1
-        vertices.push [0, 1, false], [1, 0, false], [1, 1, false]
+        pxnzIs1Lower = pxnz is h - 1
 
-      if x is p.x and z is p.z
-        log {diffPX, diffNZ, diffNX, diffPZ, vertices}
+        pxnzIsSameOrHigher = pxnz >= h
+        pxpzIs1Lower = pxpz is h - 1
+
+        shadows.bottomRight = pxnzIs1Lower or pxnzIsSameOrHigher
+        shadows.topRight = shadows.topRight or pxnzIsSameOrHigher
+        shadows.bottomLeft = pxpzIs1Lower or shadows.topLeft
+
+        vertices.push [0, 1, shadows.bottomLeft], 
+                      [1, 0, shadows.bottomLeft],
+                      [1, 1, shadows.bottomRight]
+
+
+      vertices.push [0, 2, shadows.topRight],
+                    [1, 2, shadows.topRight],
+                    [0, 0, shadows.topLeft]
 
       @mergeVoxelGeometry pxGeometry, pxVertexColors, geometry, dummy, vertices
 
