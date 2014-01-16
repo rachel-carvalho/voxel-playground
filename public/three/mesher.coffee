@@ -173,14 +173,14 @@ class Mesher
     diffNZ = h - nz
 
     if diffPX > 0 or x is first
+      vertices = []
+
       pzIsSameOrHigher = pz >= h
       pxpzIsSameOrHigher = pxpz >= h
 
       shadows = 
-        topRight: pxnz > px and px is h - 1 and x > first
         topLeft: pzIsSameOrHigher and pxpzIsSameOrHigher
-      vertices = []
-
+        topRight: pxnz > px and px is h - 1 and x > first
       
       if diffPX > 1
         pxnzIs1Lower = pxnz is h - 1
@@ -196,36 +196,103 @@ class Mesher
                       [1, 0, shadows.bottomLeft],
                       [1, 1, shadows.bottomRight]
 
-
       vertices.push [0, 2, shadows.topRight],
                     [1, 2, shadows.topRight],
                     [0, 0, shadows.topLeft]
 
       @mergeVoxelGeometry pxGeometry, pxVertexColors, geometry, dummy, vertices
 
+
     if diffNX > 0 or x is last
-      @mergeVoxelGeometry nxGeometry, nxVertexColors, geometry, dummy,
-        [
-          [0, 0, nxnz > nx and x < last], 
-          [0, 2, nxpz > nx and x < last], 
-          [1, 2, nxpz > nx and x < last]
-        ]
+      vertices = []
+
+      pzIsSameOrHigher = pz >= h
+      nxnzIsSameOrHigher = nxnz >= h
+      nxpzIsSameOrHigher = nxpz >= h
+
+      shadows = 
+        topLeft: pzIsSameOrHigher and nxnzIsSameOrHigher
+        topRight: nxpzIsSameOrHigher or (nxpz > nx and nx is h - 1 and x < last)
+      
+      if diffNX > 1
+        nxpzIs1Lower = nxpz is h - 1
+
+        nxnzIs1Lower = nxnz is h - 1
+
+        shadows.bottomRight = nxpzIs1Lower or nxpzIsSameOrHigher
+        shadows.bottomLeft = nxnzIs1Lower or shadows.topLeft
+
+        vertices.push [0, 1, shadows.bottomLeft], 
+                      [1, 0, shadows.bottomLeft],
+                      [1, 1, shadows.bottomRight]
+
+      vertices.push [0, 0, shadows.topLeft],
+                    [0, 2, shadows.topRight],
+                    [1, 2, shadows.topRight]
+
+      @mergeVoxelGeometry nxGeometry, nxVertexColors, geometry, dummy, vertices
+
     
     if diffPZ > 0 or z is last
-      @mergeVoxelGeometry pzGeometry, pzVertexColors, geometry, dummy,
-        [
-          [0, 0, nxpz > pz and z < last], 
-          [0, 2, pxpz > pz and z < last], 
-          [1, 2, pxpz > pz and z < last]
-        ]
+      vertices = []
+
+      nxIsSameOrHigher = nx >= h
+      nxpzIsSameOrHigher = nxpz >= h
+      pxpzIsSameOrHigher = pxpz >= h
+
+      shadows = 
+        topLeft: nxIsSameOrHigher and nxpzIsSameOrHigher
+        topRight: pxpzIsSameOrHigher or (nxpz > pz and pz is h - 1 and z < last)
+
+      if diffPZ > 1
+        pxpzIs1Lower = pxpz is h - 1
+
+        nxpzIs1Lower = nxpz is h - 1
+
+        shadows.bottomRight = pxpzIs1Lower or pxpzIsSameOrHigher
+        shadows.bottomLeft = nxpzIs1Lower or shadows.topLeft
+
+        vertices.push [0, 1, shadows.bottomLeft], 
+                      [1, 0, shadows.bottomLeft],
+                      [1, 1, shadows.bottomRight]
+
+      vertices.push [0, 0, shadows.topLeft], 
+                    [0, 2, shadows.topRight], 
+                    [1, 2, shadows.topRight]
+
+      @mergeVoxelGeometry pzGeometry, pzVertexColors, geometry, dummy, vertices
     
+
     if diffNZ > 0 or z is first
-      @mergeVoxelGeometry nzGeometry, nzVertexColors, geometry, dummy,
-        [
-          [0, 0, pxnz > nz and z > first], 
-          [0, 2, nxnz > nz and z > first], 
-          [1, 2, nxnz > nz and z > first]
-        ]
+      vertices = []
+
+      pxIsSameOrHigher = px >= h
+      pxnzIsSameOrHigher = pxnz >= h
+
+      shadows =
+        topLeft: pxIsSameOrHigher and pxnzIsSameOrHigher
+        topRight: nxnz > nz and nz is h - 1 and z > first
+
+      if diffNZ > 1
+        nxnzIs1Lower = nxnz is h - 1
+
+        nxnzIsSameOrHigher = nxnz >= h
+        pxnzIs1Lower = pxnz is h - 1
+
+        shadows.bottomRight = nxnzIs1Lower or nxnzIsSameOrHigher
+        shadows.topRight = shadows.topRight or nxnzIsSameOrHigher
+        shadows.bottomLeft = pxnzIs1Lower or shadows.topLeft
+
+        vertices.push [0, 1, shadows.bottomLeft], 
+                      [1, 0, shadows.bottomLeft],
+                      [1, 1, shadows.bottomRight]
+
+      vertices.push [0, 0, shadows.topLeft], 
+                    [0, 2, shadows.topRight], 
+                    [1, 2, shadows.topRight]
+
+      @mergeVoxelGeometry nzGeometry, nzVertexColors, geometry, dummy, vertices
+
 
     # while there's a larger than 1 height difference, keep drawing lower Ys
     if diffPX > 1 or diffNX > 1 or diffPZ > 1 or diffNZ > 1
