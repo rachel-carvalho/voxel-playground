@@ -43,11 +43,6 @@ class Mesher
       rotationX: -Math.PI / 2, translation: [0, 50, 0]
       uvs: (fvu) -> [fvu[0][0][1], fvu[0][1][0], fvu[0][1][1]]
 
-    @py2Geometry = @generateVoxelGeometry
-      faces: [[light, light, light], [light, light, light]]
-      rotationX: -Math.PI / 2, rotationY: Math.PI / 2, translation: [0, 50, 0]
-      uvs: (fvu) -> [fvu[0][0][1], fvu[0][1][0], fvu[0][1][1]]
-
     @pzGeometry = @generateVoxelGeometry
       faces: [[light, shadow, light], [shadow, shadow, light]]
       translation: [0, 0, 50]
@@ -72,7 +67,7 @@ class Mesher
   
     g.applyMatrix matrix.makeRotationX(opts.rotationX) if opts.rotationX
     g.applyMatrix matrix.makeRotationY(opts.rotationY) if opts.rotationY
-  
+    
     g.applyMatrix matrix.makeTranslation.apply(matrix, opts.translation)
   
     g
@@ -128,32 +123,29 @@ class Mesher
         # if left, down, or left-bottom diagonal is higher, d is 0 else it's 1
         d = (if px > h or nz > h or pxnz > h then 0 else 1)
   
-        if a + c > b + d
-          @mergeVoxelGeometry py2Geometry, geometry, dummy, [
-            [0, 0, b is 0], [0, 1, c is 0], [0, 2, a is 0]
-            [1, 0, c is 0], [1, 1, d is 0], [1, 2, a is 0]
-          ]
-        else
-          @mergeVoxelGeometry pyGeometry, geometry, dummy, [
-            [0, 0, a is 0], [0, 1, b is 0], [0, 2, d is 0]
-            [1, 0, b is 0], [1, 1, c is 0], [1, 2, d is 0]
-          ]
+        @mergeVoxelGeometry pyGeometry, geometry, dummy, [
+          [0, 0, a is 0], [0, 1, b is 0], [0, 2, d is 0]
+          [1, 0, b is 0], [1, 1, c is 0], [1, 2, d is 0]
+        ]
+
+        first = 0
+        last = chunkSize - 1
   
-        if (px isnt h and px isnt h + 1) or x is 0
+        if (px isnt h and px isnt h + 1) or x is first
           @mergeVoxelGeometry pxGeometry, geometry, dummy,
-            [[0, 0, pxpz > px and x > 0], [0, 2, pxnz > px and x > 0], [1, 2, pxnz > px and x > 0]]
+            [[0, 0, pxpz > px and x > first], [0, 2, pxnz > px and x > first], [1, 2, pxnz > px and x > first]]
   
-        if (nx isnt h and nx isnt h + 1) or x is chunkSize - 1
+        if (nx isnt h and nx isnt h + 1) or x is last
           @mergeVoxelGeometry nxGeometry, geometry, dummy,
-            [[0, 0, nxnz > nx and x < chunkSize - 1], [0, 2, nxpz > nx and x < chunkSize - 1], [1, 2, nxpz > nx and x < chunkSize - 1]]
+            [[0, 0, nxnz > nx and x < last], [0, 2, nxpz > nx and x < last], [1, 2, nxpz > nx and x < last]]
         
-        if (pz isnt h and pz isnt h + 1) or z is chunkSize - 1
+        if (pz isnt h and pz isnt h + 1) or z is last
           @mergeVoxelGeometry pzGeometry, geometry, dummy,
-            [[0, 0, nxpz > pz and z < chunkSize - 1], [0, 2, pxpz > pz and z < chunkSize - 1], [1, 2, pxpz > pz and z < chunkSize - 1]]
+            [[0, 0, nxpz > pz and z < last], [0, 2, pxpz > pz and z < last], [1, 2, pxpz > pz and z < last]]
         
-        if (nz isnt h and nz isnt h + 1) or z is 0
+        if (nz isnt h and nz isnt h + 1) or z is first
           @mergeVoxelGeometry nzGeometry, geometry, dummy,
-            [[0, 0, pxnz > nz and z > 0], [0, 2, nxnz > nz and z > 0], [1, 2, nxnz > nz and z > 0]]
+            [[0, 0, pxnz > nz and z > first], [0, 2, nxnz > nz and z > first], [1, 2, nxnz > nz and z > first]]
   
     new THREE.Mesh geometry, @material
 
