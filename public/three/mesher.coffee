@@ -115,9 +115,17 @@ class Mesher
         pxnz = getY(x + 1, z - 1)
         nxnz = getY(x - 1, z - 1)
   
+        # PXPZ PZ NXPZ
+        #   PX 00 NX
+        # PXNZ NZ NXNZ
+  
+        # if right, down, or right-bottom diagonal is higher, a is 0 else it's 1
         a = (if nx > h or nz > h or nxnz > h then 0 else 1)
+        # if right, up, or right-top diagonal is higher, b is 0 else it's 1
         b = (if nx > h or pz > h or nxpz > h then 0 else 1)
+        # if left, up, or left-top diagonal is higher, c is 0 else it's 1
         c = (if px > h or pz > h or pxpz > h then 0 else 1)
+        # if left, down, or left-bottom diagonal is higher, d is 0 else it's 1
         d = (if px > h or nz > h or pxnz > h then 0 else 1)
   
         if a + c > b + d
