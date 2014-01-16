@@ -33,26 +33,36 @@ class Mesher
       rotationY: Math.PI / 2, translation: [50, 0, 0]
       uvs: (fvu) -> [fvu[0][0][0], fvu[0][0][2], fvu[0][1][2]]
 
+    @pxVertexColors = (@pxGeometry.faces[i].vertexColors for i in [0..1])
+
     @nxGeometry = @generateVoxelGeometry
       faces: [[light, shadow, light], [shadow, shadow, light]]
       rotationY: -Math.PI / 2, translation: [-50, 0, 0]
       uvs: (fvu) -> [fvu[0][0][0], fvu[0][0][2], fvu[0][1][2]]
+
+    @nxVertexColors = (@nxGeometry.faces[i].vertexColors for i in [0..1])
 
     @pyGeometry = @generateVoxelGeometry
       faces: [[light, light, light], [light, light, light]]
       rotationX: -Math.PI / 2, translation: [0, 50, 0]
       uvs: (fvu) -> [fvu[0][0][1], fvu[0][1][0], fvu[0][1][1]]
 
+    @pyVertexColors = (@pyGeometry.faces[i].vertexColors for i in [0..1])
+
     @pzGeometry = @generateVoxelGeometry
       faces: [[light, shadow, light], [shadow, shadow, light]]
       translation: [0, 0, 50]
       uvs: (fvu) -> [fvu[0][0][0], fvu[0][0][2], fvu[0][1][2]]
+
+    @pzVertexColors = (@pzGeometry.faces[i].vertexColors for i in [0..1])
 
     @nzGeometry = @generateVoxelGeometry
       faces: [[light, shadow, light], [shadow, shadow, light]]
       rotationY: Math.PI, translation: [0, 0, -50]
       uvs: (fvu) -> [fvu[0][0][0], fvu[0][0][2], fvu[0][1][2]]
     
+    @nzVertexColors = (@nzGeometry.faces[i].vertexColors for i in [0..1])
+
 
   generateVoxelGeometry: (opts) ->
     {THREE, matrix} = this
@@ -60,7 +70,7 @@ class Mesher
     
     g = new THREE.PlaneGeometry(voxelSize, voxelSize)
   
-    for i in [0, 1]
+    for i in [0..1]
       g.faces[i].vertexColors.push.apply g.faces[i].vertexColors, opts.faces[i]
   
     uv.y = 0.5 for uv in opts.uvs(g.faceVertexUvs)
@@ -73,13 +83,19 @@ class Mesher
     g
 
 
-  mergeVoxelGeometry: (voxelGeometry, chunkGeometry, dummy, faces) ->
+  mergeVoxelGeometry: (voxelGeometry, defaultFaceColors, chunkGeometry, dummy, vertices) ->
     {shadow, light} = this
     
     dummy.geometry = voxelGeometry
 
-    for f in faces
-      dummy.geometry.faces[f[0]].vertexColors[f[1]] = (if f[2] then shadow else light)
+    for i in [0, 1]
+      dummy.geometry.faces[i].vertexColors = defaultFaceColors[i].slice()
+
+    for v in vertices
+      face = v[0]
+      vertexIndex = v[1]
+      shadowed = v[2]
+      dummy.geometry.faces[face].vertexColors[vertexIndex] = (if shadowed then shadow else light)
 
     THREE.GeometryUtils.merge chunkGeometry, dummy
 
@@ -122,7 +138,8 @@ class Mesher
     {dummy, geometry} = opts
 
     {voxelSize, chunkSize} = @config
-    {pxGeometry, nxGeometry, pyGeometry, py2Geometry, pzGeometry, nzGeometry} = this
+    {pxGeometry, nxGeometry, pyGeometry, pzGeometry, nzGeometry} = this
+    {pxVertexColors, nxVertexColors, pyVertexColors, pzVertexColors, nzVertexColors} = this
 
     # PXPZ PZ NXPZ
     #   PX 00 NX
@@ -142,7 +159,7 @@ class Mesher
     dummy.position.z = (z * voxelSize)
     
     if opts.top
-      @mergeVoxelGeometry pyGeometry, geometry, dummy, [
+      @mergeVoxelGeometry pyGeometry, pyVertexColors, geometry, dummy, [
         [0, 0, a is 0], [0, 1, b is 0], [0, 2, d is 0]
         [1, 0, b is 0], [1, 1, c is 0], [1, 2, d is 0]
       ]
@@ -151,28 +168,49 @@ class Mesher
     last = chunkSize - 1
 
     diffPX = h - px
-    if diffPX > 0 or x is first
-      @mergeVoxelGeometry pxGeometry, geometry, dummy,
-        [
-          [0, 0, pxpz > px and x > first],
-          [0, 2, pxnz > px and x > first],
-          [1, 2, pxnz > px and x > first]
-        ]
-
     diffNX = h - nx
-    if nx < h or x is last
-      @mergeVoxelGeometry nxGeometry, geometry, dummy,
-        [[0, 0, nxnz > nx and x < last], [0, 2, nxpz > nx and x < last], [1, 2, nxpz > nx and x < last]]
-    
     diffPZ = h - pz
-    if pz < h or z is last
-      @mergeVoxelGeometry pzGeometry, geometry, dummy,
-        [[0, 0, nxpz > pz and z < last], [0, 2, pxpz > pz and z < last], [1, 2, pxpz > pz and z < last]]
-    
     diffNZ = h - nz
-    if nz < h or z is first
-      @mergeVoxelGeometry nzGeometry, geometry, dummy,
-        [[0, 0, pxnz > nz and z > first], [0, 2, nxnz > nz and z > first], [1, 2, nxnz > nz and z > first]]
+
+    p = x: 151, z: 463
+    if diffPX > 0 or x is first
+      vertices = [
+        [0, 0, pxpz > px and x > first]
+        [0, 2, pxnz > px and x > first]
+        [1, 2, pxnz > px and x > first]
+      ]
+
+      if diffPX > 1
+        vertices.push [0, 1, false], [1, 0, false], [1, 1, false]
+
+      if x is p.x and z is p.z
+        log {diffPX, diffNZ, diffNX, diffPZ, vertices}
+
+      @mergeVoxelGeometry pxGeometry, pxVertexColors, geometry, dummy, vertices
+
+    if diffNX > 0 or x is last
+      @mergeVoxelGeometry nxGeometry, nxVertexColors, geometry, dummy,
+        [
+          [0, 0, nxnz > nx and x < last], 
+          [0, 2, nxpz > nx and x < last], 
+          [1, 2, nxpz > nx and x < last]
+        ]
+    
+    if diffPZ > 0 or z is last
+      @mergeVoxelGeometry pzGeometry, pzVertexColors, geometry, dummy,
+        [
+          [0, 0, nxpz > pz and z < last], 
+          [0, 2, pxpz > pz and z < last], 
+          [1, 2, pxpz > pz and z < last]
+        ]
+    
+    if diffNZ > 0 or z is first
+      @mergeVoxelGeometry nzGeometry, nzVertexColors, geometry, dummy,
+        [
+          [0, 0, pxnz > nz and z > first], 
+          [0, 2, nxnz > nz and z > first], 
+          [1, 2, nxnz > nz and z > first]
+        ]
 
     # while there's a larger than 1 height difference, keep drawing lower Ys
     if diffPX > 1 or diffNX > 1 or diffPZ > 1 or diffNZ > 1
