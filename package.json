@@ -18,6 +18,7 @@
   },
   "scripts": {
     "start": "cd public/ && beefy simple.js 3000",
-    "three": "cd public/three/ && beefy three.coffee 4000 -- -t coffeeify"
+    "three": "cd public/three/ && beefy three.coffee 4000 -- -t coffeeify",
+    "3test": "cd public/three/ && beefy test.coffee 5000 -- -t coffeeify"
   }
 }
