@@ -86,68 +86,98 @@ class Mesher
 
   generate: (opts) ->
     {zArray, xArray, getY} = opts
-    {voxelSize, chunkSize} = @config
-    {pxGeometry, nxGeometry, pyGeometry, py2Geometry, pzGeometry, nzGeometry} = this
 
     geometry = new THREE.Geometry()
     dummy = new THREE.Mesh()
 
     for z in zArray
       for x in xArray
-        h = getY(x, z)
-  
-        dummy.position.x = (x * voxelSize)
-        dummy.position.y = h * voxelSize
-        dummy.position.z = (z * voxelSize)
-        
-        px = getY(x + 1, z)
-        nx = getY(x - 1, z)
-        pz = getY(x, z + 1)
-        nz = getY(x, z - 1)
-  
-        pxpz = getY(x + 1, z + 1)
-        nxpz = getY(x - 1, z + 1)
-        pxnz = getY(x + 1, z - 1)
-        nxnz = getY(x - 1, z - 1)
-  
-        # PXPZ PZ NXPZ
-        #   PX 00 NX
-        # PXNZ NZ NXNZ
-  
-        # if right, down, or right-bottom diagonal is higher, a is 0 else it's 1
-        a = (if nx > h or nz > h or nxnz > h then 0 else 1)
-        # if right, up, or right-top diagonal is higher, b is 0 else it's 1
-        b = (if nx > h or pz > h or nxpz > h then 0 else 1)
-        # if left, up, or left-top diagonal is higher, c is 0 else it's 1
-        c = (if px > h or pz > h or pxpz > h then 0 else 1)
-        # if left, down, or left-bottom diagonal is higher, d is 0 else it's 1
-        d = (if px > h or nz > h or pxnz > h then 0 else 1)
-  
-        @mergeVoxelGeometry pyGeometry, geometry, dummy, [
-          [0, 0, a is 0], [0, 1, b is 0], [0, 2, d is 0]
-          [1, 0, b is 0], [1, 1, c is 0], [1, 2, d is 0]
-        ]
+        @generateColumn
+          top: yes
 
-        first = 0
-        last = chunkSize - 1
-  
-        if px < h or x is first
-          @mergeVoxelGeometry pxGeometry, geometry, dummy,
-            [[0, 0, pxpz > px and x > first], [0, 2, pxnz > px and x > first], [1, 2, pxnz > px and x > first]]
-  
-        if nx < h or x is last
-          @mergeVoxelGeometry nxGeometry, geometry, dummy,
-            [[0, 0, nxnz > nx and x < last], [0, 2, nxpz > nx and x < last], [1, 2, nxpz > nx and x < last]]
-        
-        if pz < h or z is last
-          @mergeVoxelGeometry pzGeometry, geometry, dummy,
-            [[0, 0, nxpz > pz and z < last], [0, 2, pxpz > pz and z < last], [1, 2, pxpz > pz and z < last]]
-        
-        if nz < h or z is first
-          @mergeVoxelGeometry nzGeometry, geometry, dummy,
-            [[0, 0, pxnz > nz and z > first], [0, 2, nxnz > nz and z > first], [1, 2, nxnz > nz and z > first]]
+          dummy: dummy
+          geometry: geometry
+
+          h: getY(x, z)
+          x: x
+          z: z
+          
+          px: getY(x + 1, z)
+          nx: getY(x - 1, z)
+          pz: getY(x, z + 1)
+          nz: getY(x, z - 1)
+
+          pxpz: getY(x + 1, z + 1)
+          nxpz: getY(x - 1, z + 1)
+          pxnz: getY(x + 1, z - 1)
+          nxnz: getY(x - 1, z - 1)
   
     new THREE.Mesh geometry, @material
+
+
+  generateColumn: (opts)->
+    {x, z, h} = opts
+    {px, nx, pz, nz} = opts
+    {pxpz, nxpz, pxnz, nxnz} = opts
+    {dummy, geometry} = opts
+
+    {voxelSize, chunkSize} = @config
+    {pxGeometry, nxGeometry, pyGeometry, py2Geometry, pzGeometry, nzGeometry} = this
+
+    # PXPZ PZ NXPZ
+    #   PX 00 NX
+    # PXNZ NZ NXNZ
+
+    # if right, down, or right-bottom diagonal is higher, a is 0 else it's 1
+    a = (if nx > h or nz > h or nxnz > h then 0 else 1)
+    # if right, up, or right-top diagonal is higher, b is 0 else it's 1
+    b = (if nx > h or pz > h or nxpz > h then 0 else 1)
+    # if left, up, or left-top diagonal is higher, c is 0 else it's 1
+    c = (if px > h or pz > h or pxpz > h then 0 else 1)
+    # if left, down, or left-bottom diagonal is higher, d is 0 else it's 1
+    d = (if px > h or nz > h or pxnz > h then 0 else 1)
+
+    dummy.position.x = (x * voxelSize)
+    dummy.position.y = h * voxelSize
+    dummy.position.z = (z * voxelSize)
+    
+    if opts.top
+      @mergeVoxelGeometry pyGeometry, geometry, dummy, [
+        [0, 0, a is 0], [0, 1, b is 0], [0, 2, d is 0]
+        [1, 0, b is 0], [1, 1, c is 0], [1, 2, d is 0]
+      ]
+
+    first = 0
+    last = chunkSize - 1
+
+    diffPX = h - px
+    if diffPX > 0 or x is first
+      @mergeVoxelGeometry pxGeometry, geometry, dummy,
+        [
+          [0, 0, pxpz > px and x > first],
+          [0, 2, pxnz > px and x > first],
+          [1, 2, pxnz > px and x > first]
+        ]
+
+    diffNX = h - nx
+    if nx < h or x is last
+      @mergeVoxelGeometry nxGeometry, geometry, dummy,
+        [[0, 0, nxnz > nx and x < last], [0, 2, nxpz > nx and x < last], [1, 2, nxpz > nx and x < last]]
+    
+    diffPZ = h - pz
+    if pz < h or z is last
+      @mergeVoxelGeometry pzGeometry, geometry, dummy,
+        [[0, 0, nxpz > pz and z < last], [0, 2, pxpz > pz and z < last], [1, 2, pxpz > pz and z < last]]
+    
+    diffNZ = h - nz
+    if nz < h or z is first
+      @mergeVoxelGeometry nzGeometry, geometry, dummy,
+        [[0, 0, pxnz > nz and z > first], [0, 2, nxnz > nz and z > first], [1, 2, nxnz > nz and z > first]]
+
+    # while there's a larger than 1 height difference, keep drawing lower Ys
+    if diffPX > 1 or diffNX > 1 or diffPZ > 1 or diffNZ > 1
+      h--
+      @generateColumn {h, x, z, px, nx, pz, nz, pxpz, nxpz, pxnz, nxnz, dummy, geometry}
 
 
 module.exports = Mesher
