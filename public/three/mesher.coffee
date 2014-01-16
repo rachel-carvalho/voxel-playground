@@ -131,19 +131,19 @@ class Mesher
         first = 0
         last = chunkSize - 1
   
-        if (px isnt h and px isnt h + 1) or x is first
+        if px < h or x is first
           @mergeVoxelGeometry pxGeometry, geometry, dummy,
             [[0, 0, pxpz > px and x > first], [0, 2, pxnz > px and x > first], [1, 2, pxnz > px and x > first]]
   
-        if (nx isnt h and nx isnt h + 1) or x is last
+        if nx < h or x is last
           @mergeVoxelGeometry nxGeometry, geometry, dummy,
             [[0, 0, nxnz > nx and x < last], [0, 2, nxpz > nx and x < last], [1, 2, nxpz > nx and x < last]]
         
-        if (pz isnt h and pz isnt h + 1) or z is last
+        if pz < h or z is last
           @mergeVoxelGeometry pzGeometry, geometry, dummy,
             [[0, 0, nxpz > pz and z < last], [0, 2, pxpz > pz and z < last], [1, 2, pxpz > pz and z < last]]
         
-        if (nz isnt h and nz isnt h + 1) or z is first
+        if nz < h or z is first
           @mergeVoxelGeometry nzGeometry, geometry, dummy,
             [[0, 0, pxnz > nz and z > first], [0, 2, nxnz > nz and z > first], [1, 2, nxnz > nz and z > first]]
   
