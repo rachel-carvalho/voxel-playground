@@ -82,7 +82,7 @@ class Game
     scene.add new THREE.AmbientLight(0xcccccc)
 
     directionalLight = new THREE.DirectionalLight(0xffffff, 2)
-    directionalLight.position.set(1, 1, 0.5).normalize()
+    directionalLight.position.set(1, 1, -0.5).normalize()
     scene.add directionalLight
     
     scene
@@ -90,7 +90,7 @@ class Game
   createRenderer: ->
     {THREE} = this
 
-    renderer = new THREE.WebGLRenderer(alpha: false)
+    renderer = new THREE.WebGLRenderer(antialias: true)
     renderer.setClearColor 0xf2c8b8
     renderer.setSize window.innerWidth, window.innerHeight
     
