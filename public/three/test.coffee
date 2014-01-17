@@ -50,6 +50,25 @@ window.test = (ex) ->
 
   game.scene.add mesh
 
+window.addCube = (width, height, y) ->
+  {voxelSize} = game.map.config
+
+  width = width or voxelSize / 2
+  height = height or voxelSize * 1.7
+
+  g = new THREE.CubeGeometry width, height, width
+
+  mat = new THREE.MeshLambertMaterial color: 0x0000cc
+
+  game.scene.remove window.ava if window.ava
+ 
+  window.ava = avatar = new THREE.Mesh g, mat
+  p = game.controls.yawObject.position
+  y = (y or p.y) + height / 2
+  avatar.position.set p.x, y, p.z
+  game.scene.add avatar
+
+
 
 class Game
   constructor: ->
@@ -74,14 +93,34 @@ class Game
 
       window.addEventListener "resize", @onWindowResize, false
 
-      @controls.getObject().position.set 15695.61482848381, 23600, 45625.18956538584
-      
+      @controls.getObject().position.set 15695.61482848381, 23450, 45625.18956538584
+
+      @createAvatar()
+
       @animate()
+
+  createAvatar: ->
+    {THREE} = this
+    {voxelSize} = @map.config
+
+    @avatarWidth = width = voxelSize / 2
+    height = voxelSize * 1.7
+
+    g = new THREE.CubeGeometry width, height, width
+
+    mat = new THREE.MeshLambertMaterial color: 0x0000cc
+
+    window.av = avatar = new THREE.Mesh g, mat
+    y = height / 2
+    avatar.position.y = y
+    @controls.yawObject.add avatar
+
+    @controls.pitchObject.position.z += 100
 
   getCameraYAt: (x, z) ->
     {voxelSize} = @map.config
 
-    y = (@map.getY(x, z) * voxelSize) + voxelSize * 2
+    y = ((@map.getY(x, z) + 0.5) * voxelSize)
 
     y
 
@@ -94,12 +133,14 @@ class Game
     {THREE} = this
     
     ray = new THREE.Raycaster()
-    ray.ray.direction.set 0, -1, 0
+
+    ray.far = 100
 
     ray
 
   createControls: ->
     {THREE} = this
+    {voxelSize} = @map.config
 
     element = document.body
     pointerlockchange = (event) =>
@@ -120,6 +161,8 @@ class Game
     controls.getObject().position.y = @getCameraYAt 0, 0
 
     @scene.add controls.getObject()
+
+    controls.pitchObject.position.y = voxelSize * 1.5
 
     controls
 
@@ -169,13 +212,46 @@ class Game
     window.requestAnimationFrame game.animate
     game.render()
 
-  updateControls: ->
+  intersect: ->
     {voxelSize} = @map.config
-    {x, z} = @controls.getObject().position
-    x = Math.floor(x / voxelSize)
-    z = Math.floor(z / voxelSize)
-    floor = @getCameraYAt x, z
-    @controls.update @clock.getDelta() * 1000, floor
+
+    p = @controls.getObject().position.clone()
+
+    directions = {}
+
+    sigNames = {}
+    sigNames[-1] = 'neg'
+    sigNames[1] = 'pos'
+
+    for d in ['z', 'x']
+      for signal in [-1, 1]
+        pos = p.clone()
+        pos[d] += (@avatarWidth / 2) * signal
+        dir = p.clone()
+        dir[d] += voxelSize * signal
+        dir.sub pos
+        @ray.set(pos, dir)
+
+        intersection = @ray.intersectObjects(@map.chunkArray)[0]
+        # log pos, dir
+
+        if intersection?.distance < 50
+          log intersection
+          directions["#{sigNames[signal]}#{d}"] = intersection
+
+    directions
+
+  updateControls: ->
+    if @controls.enabled
+      {voxelSize} = @map.config
+      {x, z} = @controls.getObject().position.clone()
+      x = Math.floor(x / voxelSize)
+      z = Math.floor(z / voxelSize)
+      floor = @getCameraYAt x, z
+
+      floor = 23450
+
+      @controls.update @clock.getDelta() * 1000, floor, @intersect()
 
   render: ->
     @stats.update()
