@@ -2,6 +2,7 @@ window.log = log = -> console.log.apply console, arguments
 
 THREE = window.THREE
 Mesher = require './mesher.coffee'
+PointerLockControls = require './pointer-lock.coffee'
 
 class Game
   constructor: ->
@@ -77,10 +78,9 @@ class Game
       element.requestPointerLock()
     , false
 
-    controls = new THREE.PointerLockControls
+    controls = new PointerLockControls
       camera: @camera
       avatar: avatar
-      voxelSize: voxelSize
       threelyToVoxelyCoords: (c) => @map.threelyToVoxelyCoords(c)
       getAvatarY: (x, z) => @getAvatarY(x, z)
 
