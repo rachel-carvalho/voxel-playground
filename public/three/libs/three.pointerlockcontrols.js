@@ -137,9 +137,30 @@ THREE.PointerLockControls = function ( camera ) {
 
   }();
 
-  this.update = function ( delta, floor, directions ) {
+  var getRotatedVelocity = function() {
+    var v = velocity.clone();
+    v.applyQuaternion(yawObject.quaternion);
+    return v;
+  };
+
+  var setRotatedVelocity = function(rotatedVelocity) {
+    var v = rotatedVelocity.clone();
+    v.applyQuaternion(yawObject.quaternion.clone().inverse());
+    velocity.set(v.x, v.y, v.z);
+  };
+
+  this.update = function ( opts ) {
 
     if ( scope.enabled === false ) return;
+
+    var delta = opts.delta;
+    var getAvatarYAt = opts.getAvatarYAt;
+    var voxelSize = opts.voxelSize;
+    var threelyToVoxelCoords = opts.threelyToVoxelCoords;
+
+    var p = yawObject.position.clone();
+    var voxelP = threelyToVoxelCoords(p);
+    var floor = getAvatarYAt(voxelP.x, voxelP.z);
 
     delta *= 0.1;
 
@@ -158,37 +179,59 @@ THREE.PointerLockControls = function ( camera ) {
     if ( moveLeft ) velocity.x -= speed;
     if ( moveRight ) velocity.x += speed;
 
-    yawObject.translateX( velocity.x );
-    yawObject.translateY( velocity.y ); 
-    yawObject.translateZ( velocity.z );
+    var rotatedVelocity = getRotatedVelocity();
 
-    var distance = 30;
+    var avoided = false;
+    var avoidCollisions = function(){
+      p = yawObject.position.clone();
+      p.add(rotatedVelocity);
+  
+      // new voxel and floor
+      var newVoxelP = threelyToVoxelCoords(p);
+      var newFloor = getAvatarYAt(newVoxelP.x, newVoxelP.z);
+  
+      // new y is higher than previous floor and player hasn't jumped enough
+      if (newFloor > floor && p.y < newFloor) {
+        // log('new y is higher than previous floor and player hasnt jumped enough', newFloor, floor, p)
+        
+        var velocityReset = false;
+        // changed voxels on the x axis
+        if (voxelP.x != newVoxelP.x){
+          rotatedVelocity.x = 0;
+          velocityReset = true;
+        }
 
-    if (directions.negx && yawObject.position.x < directions.negx.point.x + distance) {
-      velocity.x = 0;
-      yawObject.position.x = directions.negx.point.x + distance;
-    }
-    if (directions.posx && yawObject.position.x > directions.posx.point.x - distance) {
-      velocity.x = 0;
-      yawObject.position.x = directions.posx.point.x - distance;
-    }
-    if (directions.negz && yawObject.position.z < directions.negz.point.z + distance) {
-      velocity.z = 0;
-      yawObject.position.z = directions.negz.point.z + distance;
-    }
-    if (directions.posz && yawObject.position.z > directions.posz.point.z - distance) {
-      velocity.z = 0;
-      yawObject.position.z = directions.posz.point.z - distance;
-    }
+        // changed voxels on the z axis
+        if (voxelP.z != newVoxelP.z){
+          rotatedVelocity.z = 0;
+          velocityReset = true;
+        }
 
-    if ( yawObject.position.y < floor ) {
-      velocity.y = 0;
-      yawObject.position.y = floor;
+        // if velocity is reset, we re-run predictions before testing vertical velocity
+        if (velocityReset) {
+          // if avoidCollisions has been called once from inside
+          // and is being called again, something is very wrong
+          if (avoided) {
+            log('damn it, carl');
+            return;
+          }
+          avoided = true;
+          avoidCollisions();
+          return;
+        }
+      }
+  
+      if (p.y < newFloor) {
+        rotatedVelocity.y = 0;
+        yawObject.position.y = newFloor;
+        canJump = true;
+      }
+    };
 
-      canJump = true;
-    }
+    avoidCollisions();
 
-
+    setRotatedVelocity(rotatedVelocity);
+    yawObject.position.add(rotatedVelocity);
   };
 
 };

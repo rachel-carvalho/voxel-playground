@@ -3,53 +3,6 @@ window.log = log = -> console.log.apply console, arguments
 THREE = window.THREE
 Mesher = require './mesher.coffee'
 
-window.test = (ex) ->
-  pos = x: 15695.61482848381, y: 23500, z: 45625.18956538584
-
-  window.l = light = new THREE.Color(0x999999)
-  window.s = shadow = new THREE.Color(0x505050)
-  matrix = new THREE.Matrix4()
-  voxelSize = 100
-
-  optsY =  
-    faces: [[light, light, light], [light, light, light]]
-    rotationX: -Math.PI / 2, translation: [0, 50, 0]
-    uvs: (fvu) -> [fvu[0][0][1], fvu[0][1][0], fvu[0][1][1]]
-
-  optsX =
-    faces: [[light, shadow, light], [shadow, shadow, light]]
-    rotationY: Math.PI / 2, translation: [50, 0, 0]
-    uvs: (fvu) -> [fvu[0][0][0], fvu[0][0][2], fvu[0][1][2]]
-
-  opts = if ex then optsX else optsY
-
-  g = new THREE.PlaneGeometry(voxelSize, voxelSize)
-  
-  for i in [0, 1]
-    g.faces[i].vertexColors.push.apply g.faces[i].vertexColors, opts.faces[i]
-
-  uv.y = 0.5 for uv in opts.uvs(g.faceVertexUvs)
-
-  g.applyMatrix matrix.makeRotationX(opts.rotationX) if opts.rotationX
-  g.applyMatrix matrix.makeRotationY(opts.rotationY) if opts.rotationY
-
-  g.applyMatrix matrix.makeTranslation.apply(matrix, opts.translation)
-
-  texture = THREE.ImageUtils.loadTexture("textures/atlas.png")
-  texture.magFilter = THREE.NearestFilter
-  texture.minFilter = THREE.LinearMipMapLinearFilter
-
-  mat = new THREE.MeshLambertMaterial
-    map: texture, ambient: 0xbbbbbb, vertexColors: THREE.VertexColors
-
-  game.scene.remove window.mesh if window.mesh
-
-  window.mesh = mesh = new THREE.Mesh g, mat
-
-  mesh.position.set pos.x, pos.y, pos.z
-
-  game.scene.add mesh
-
 window.addCube = (width, height, y) ->
   {voxelSize} = game.map.config
 
@@ -115,9 +68,9 @@ class Game
     avatar.position.y = y
     @controls.yawObject.add avatar
 
-    @controls.pitchObject.position.z += 100
+    @controls.pitchObject.position.y += 100
 
-  getCameraYAt: (x, z) ->
+  getAvatarYAt: (x, z) ->
     {voxelSize} = @map.config
 
     y = ((@map.getY(x, z) + 0.5) * voxelSize)
@@ -158,7 +111,7 @@ class Game
 
     controls = new THREE.PointerLockControls @camera
 
-    controls.getObject().position.y = @getCameraYAt 0, 0
+    controls.getObject().position.y = @getAvatarYAt 0, 0
 
     @scene.add controls.getObject()
 
@@ -243,15 +196,12 @@ class Game
 
   updateControls: ->
     if @controls.enabled
-      {voxelSize} = @map.config
-      {x, z} = @controls.getObject().position.clone()
-      x = Math.floor(x / voxelSize)
-      z = Math.floor(z / voxelSize)
-      floor = @getCameraYAt x, z
 
-      floor = 23450
-
-      @controls.update @clock.getDelta() * 1000, floor, @intersect()
+      @controls.update 
+        delta: @clock.getDelta() * 1000
+        voxelSize: @map.config.voxelSize
+        threelyToVoxelCoords: (c) => @map.threelyToVoxelCoords(c)
+        getAvatarYAt: (x, z) => @getAvatarYAt(x, z)
 
   render: ->
     @stats.update()
@@ -295,12 +245,21 @@ class Map
     
     img
 
-  getChunkyCoords: (threelyCoords) ->
+  threelyToVoxelCoords: (threelyCoords) ->
+    {voxelSize} = @config
+
     {x, z} = threelyCoords
-    {voxelSize, chunkSize} = @config
     
-    x: Math.floor x / voxelSize / chunkSize
-    z: Math.floor z / voxelSize / chunkSize
+    x: Math.floor x / voxelSize
+    z: Math.floor z / voxelSize
+
+  getChunkyCoords: (threelyCoords) ->
+    {chunkSize} = @config
+
+    voxelCoords = @threelyToVoxelCoords threelyCoords
+    
+    x: Math.floor voxelCoords.x / chunkSize
+    z: Math.floor voxelCoords.z / chunkSize
   
   getY: (x, z) ->
     i = (@zoneWidth * z + x) << 2
