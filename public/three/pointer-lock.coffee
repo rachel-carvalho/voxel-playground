@@ -99,17 +99,6 @@ class PointerLockControls
     @yawObject
 
 
-  # @getDirection = =>
-  #   # assumes the camera itself is not rotated
-  #   direction = new THREE.Vector3(0, 0, -1)
-  #   rotation = new THREE.Euler(0, 0, 0, "YXZ")
-  #   (v) =>
-  #     rotation.set @pitchObject.rotation.x, @yawObject.rotation.y, 0
-  #     v.copy(direction).applyEuler rotation
-  #     v
-  # ()
-
-
   getRotatedVelocity: ->
     v = @velocity.clone()
     v.applyQuaternion @yawObject.quaternion
@@ -132,9 +121,11 @@ class PointerLockControls
       for z in [0, 1]
         point = @yawObject.position.clone().add(mesh.position).add(new THREE.Vector3(w * (x + 0.5), 0, d * (z + 0.5)))
         point.add vel if vel
+        voxely = @threelyToVoxelyCoords(point)
         bounds.push
           threely: point
-          voxely: @threelyToVoxelyCoords(point)
+          voxely: voxely
+          height: @getAvatarY(voxely.x, voxely.z)
 
     bounds
 
@@ -143,44 +134,67 @@ class PointerLockControls
     floor = 0
 
     for b in bounds
-      floor = Math.max floor, @getAvatarY(b.voxely.x, b.voxely.z)
+      floor = Math.max floor, b.height
 
     floor
 
 
-  avoidCollisions: (rotatedVelocity, floor, voxelsP, avoided) ->
+  predictPositions: (v, floor) ->
     p = @yawObject.position.clone()
-    p.add rotatedVelocity
-    
-    # new voxel and floor
-    newVoxelsP = @getBounds2D(@avatar, rotatedVelocity)
+    p.add v
+    newVoxelsP = @getBounds2D(@avatar, v)
     newFloor = @getHighestFloor(newVoxelsP)
+    newFloorIsHigherAndPositionIsntEnough = newFloor > floor and p.y < newFloor
+
+    {newVoxelsP, newFloor, newFloorIsHigherAndPositionIsntEnough, p}
+
+
+  avoidCollisions: (rotatedVelocity, floor, voxelsP, avoided) ->
+    originalVelocity = rotatedVelocity.clone()
+
+    # new voxel and floor
+    {newVoxelsP, newFloor, newFloorIsHigherAndPositionIsntEnough, p} = @predictPositions rotatedVelocity, floor
     
-    # new y is higher than previous floor and player hasn't jumped enough
-    if newFloor > floor and p.y < newFloor
-      velocityReset = false
+    resetVelocity =
+      x: false
+      z: false
 
-      for axis in ['x', 'z']        
-        # changed voxels on both axes
+    # for each axis,
+    for axis in ['x', 'z']
+
+      # new y is higher than previous floor and player hasn't jumped enough
+      if newFloorIsHigherAndPositionIsntEnough
+
+        # looks for voxel change
         for i in [0...voxelsP.length]
-          voxelP = voxelsP[i].voxely
-          newVoxelP = newVoxelsP[i].voxely
-          if voxelP[axis] isnt newVoxelP[axis]
+          voxelP = voxelsP[i]
+          newVoxelP = newVoxelsP[i]
+          originalVoxely = voxelP.voxely
+          newVoxely = newVoxelP.voxely
+
+          # if has changed voxel in any bounds and new voxel is higher 
+          if originalVoxely[axis] isnt newVoxely[axis] and newVoxelP.height > voxelP.height
+            other = if axis is 'x' then 'z' else 'x'
+
+            # if other axis is already reset
+            if resetVelocity[other]
+              # undo and try resetting only this one
+              resetVelocity[other] = false
+              rotatedVelocity[other] = originalVelocity[other]
+
+            # stop velocity and breaks bound loop for current axis
             rotatedVelocity[axis] = 0
-            velocityReset = true
-      
-      # if velocity is reset, we re-run predictions before testing vertical velocity
-      if velocityReset
+            resetVelocity[axis] = true
+            break
+        
+      # re-run predictions after each axis
+      {newVoxelsP, newFloor, newFloorIsHigherAndPositionIsntEnough, p} = @predictPositions rotatedVelocity, floor
 
-        # if avoidCollisions has been called once from inside
-        # and is being called again, something is very wrong
-        if avoided
-          log 'damn it, carl'
-          return
-
-        @avoidCollisions rotatedVelocity, floor, voxelsP, true
-
-        return
+    # if only one axis still was not enough, reset both
+    if newFloorIsHigherAndPositionIsntEnough
+      rotatedVelocity.x = 0
+      rotatedVelocity.z = 0
+      {newVoxelsP, newFloor, newFloorIsHigherAndPositionIsntEnough, p} = @predictPositions rotatedVelocity, floor
 
     if p.y < newFloor
       rotatedVelocity.y = 0
