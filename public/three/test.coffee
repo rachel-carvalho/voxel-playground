@@ -70,11 +70,9 @@ class Game
 
     @controls.yawObject.add avatar
 
-    @controls.pitchObject.position.z += 100
-
     avatar
 
-  getAvatarYAt: (x, z) ->
+  getAvatarY: (x, z) ->
     {voxelSize} = @map.config
 
     y = ((@map.getY(x, z) + 0.5) * voxelSize)
@@ -117,11 +115,10 @@ class Game
       camera: @camera
       avatar: avatar
       voxelSize: voxelSize
-      threelyToVoxelCoords: (c) => @map.threelyToVoxelCoords(c)
-      getAvatarYAt: (x, z) => @getAvatarYAt(x, z)
+      threelyToVoxelyCoords: (c) => @map.threelyToVoxelyCoords(c)
+      getAvatarY: (x, z) => @getAvatarY(x, z)
 
-
-    controls.getObject().position.y = @getAvatarYAt 0, 0
+    controls.getObject().position.y = @getAvatarY 0, 0
 
     @scene.add controls.getObject()
 
@@ -250,7 +247,7 @@ class Map
     
     img
 
-  threelyToVoxelCoords: (threelyCoords) ->
+  threelyToVoxelyCoords: (threelyCoords) ->
     {voxelSize} = @config
 
     {x, z} = threelyCoords
@@ -261,7 +258,7 @@ class Map
   getChunkyCoords: (threelyCoords) ->
     {chunkSize} = @config
 
-    voxelCoords = @threelyToVoxelCoords threelyCoords
+    voxelCoords = @threelyToVoxelyCoords threelyCoords
     
     x: Math.floor voxelCoords.x / chunkSize
     z: Math.floor voxelCoords.z / chunkSize

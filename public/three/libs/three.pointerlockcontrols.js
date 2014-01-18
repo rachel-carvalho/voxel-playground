@@ -8,9 +8,9 @@ THREE.PointerLockControls = function ( opts ) {
 
   var camera = opts.camera;
   var avatar = opts.avatar;
-  var getAvatarYAt = opts.getAvatarYAt;
+  var getAvatarY = opts.getAvatarY;
   var voxelSize = opts.voxelSize;
-  var threelyToVoxelCoords = opts.threelyToVoxelCoords;
+  var threelyToVoxelyCoords = opts.threelyToVoxelyCoords;
 
   camera.rotation.set( 0, 0, 0 );
 
@@ -162,14 +162,13 @@ THREE.PointerLockControls = function ( opts ) {
     var bounds = [];
     for (var x = 0; x < 2; x++){
       for (var z = 0; z < 2; z++){
-        // var point = mesh.localToWorld(new THREE.Vector3(w * x, 0, d * z));
         var point = yawObject.position.clone().add(mesh.position).add(new THREE.Vector3(w * (x + 0.5), 0, d * (z + 0.5)));
         
         if (velocity) point.add(velocity);
         
         bounds.push({
           threely: point,
-          voxely: threelyToVoxelCoords(point)
+          voxely: threelyToVoxelyCoords(point)
         });
       }
     }
@@ -180,7 +179,7 @@ THREE.PointerLockControls = function ( opts ) {
   var getHighestFloor = function(bounds) {
     var floor = 0;
     for (var i = 0; i < bounds.length; i++)
-      floor = Math.max(floor, getAvatarYAt(bounds[i].voxely.x, bounds[i].voxely.z));
+      floor = Math.max(floor, getAvatarY(bounds[i].voxely.x, bounds[i].voxely.z));
     return floor;
   };
 
@@ -217,7 +216,7 @@ THREE.PointerLockControls = function ( opts ) {
     var voxelsP = getBounds2D(avatar);
     var floor = getHighestFloor(voxelsP);
 
-    var avoidCollisions = function(){
+    var avoidCollisions = function() {
       var p = yawObject.position.clone();
       p.add(rotatedVelocity);
   
@@ -270,7 +269,7 @@ THREE.PointerLockControls = function ( opts ) {
   
       if (p.y < newFloor) {
         rotatedVelocity.y = 0;
-        // yawObject.position.y = newFloor;
+        yawObject.position.y = newFloor;
         canJump = true;
       }
     };
