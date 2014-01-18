@@ -42,8 +42,6 @@ class Game
       
       @stats = @createStats()
 
-      @ray = @createRay()
-
       window.addEventListener "resize", @onWindowResize, false
 
       # @controls.getObject().position.set 15695.61482848381, 23450, 45625.18956538584
@@ -83,15 +81,6 @@ class Game
     {THREE} = this
     
     new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 20000)
-
-  createRay: ->
-    {THREE} = this
-    
-    ray = new THREE.Raycaster()
-
-    ray.far = 100
-
-    ray
 
   createControls: (avatar) ->
     {THREE} = this
@@ -171,35 +160,6 @@ class Game
   animate: ->
     window.requestAnimationFrame game.animate
     game.render()
-
-  intersect: ->
-    {voxelSize} = @map.config
-
-    p = @controls.getObject().position.clone()
-
-    directions = {}
-
-    sigNames = {}
-    sigNames[-1] = 'neg'
-    sigNames[1] = 'pos'
-
-    for d in ['z', 'x']
-      for signal in [-1, 1]
-        pos = p.clone()
-        pos[d] += (@avatarWidth / 2) * signal
-        dir = p.clone()
-        dir[d] += voxelSize * signal
-        dir.sub pos
-        @ray.set(pos, dir)
-
-        intersection = @ray.intersectObjects(@map.chunkArray)[0]
-        # log pos, dir
-
-        if intersection?.distance < 50
-          log intersection
-          directions["#{sigNames[signal]}#{d}"] = intersection
-
-    directions
 
   updateControls: ->
     if @controls.enabled
