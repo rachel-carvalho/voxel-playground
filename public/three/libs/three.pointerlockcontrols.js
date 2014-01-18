@@ -183,13 +183,57 @@ THREE.PointerLockControls = function ( opts ) {
     return floor;
   };
 
-  var logBounds = false;
-  this.toggleLogBounds = function() {
-    logBounds = !logBounds;
+  var avoided = false;
+  var avoidCollisions = function(rotatedVelocity, floor, voxelsP) {
+    var p = yawObject.position.clone();
+    p.add(rotatedVelocity);
+
+    // new voxel and floor
+    var newVoxelsP = getBounds2D(avatar, rotatedVelocity);
+    var newFloor = getHighestFloor(newVoxelsP);
+
+    // new y is higher than previous floor and player hasn't jumped enough
+    if (newFloor > floor && p.y < newFloor) {
+      var velocityReset = false;
+      
+      var axes = ['x', 'z'];
+
+      for (var j = 0; j < axes.length; j++) {
+        var axis = axes[j];
+        // changed voxels on both axes
+        for (var i = 0; i < voxelsP.length; i++){
+          var voxelP = voxelsP[i].voxely;
+          var newVoxelP = newVoxelsP[i].voxely;
+          if (voxelP[axis] != newVoxelP[axis]){
+            rotatedVelocity[axis] = 0;
+            velocityReset = true;
+          }
+        }
+      }
+
+      // if velocity is reset, we re-run predictions before testing vertical velocity
+      if (velocityReset) {
+        // if avoidCollisions has been called once from inside
+        // and is being called again, something is very wrong
+        if (avoided) {
+          log('damn it, carl');
+          return;
+        }
+
+        avoided = true;
+        avoidCollisions(rotatedVelocity, floor, voxelsP);
+        return;
+      }
+    }
+
+    if (p.y < newFloor) {
+      rotatedVelocity.y = 0;
+      yawObject.position.y = newFloor;
+      canJump = true;
+    }
   };
 
   this.update = function ( delta ) {
-
     if ( scope.enabled === false ) return;
 
     delta *= 0.1;
@@ -211,70 +255,11 @@ THREE.PointerLockControls = function ( opts ) {
 
     var rotatedVelocity = getRotatedVelocity();
 
-    var avoided = false;
-
     var voxelsP = getBounds2D(avatar);
     var floor = getHighestFloor(voxelsP);
 
-    var avoidCollisions = function() {
-      var p = yawObject.position.clone();
-      p.add(rotatedVelocity);
-  
-      // new voxel and floor
-      var newVoxelsP = getBounds2D(avatar, rotatedVelocity);
-      var newFloor = getHighestFloor(newVoxelsP);
-
-      if (logBounds)
-        log(voxelsP, floor, newVoxelsP, newFloor);
-      
-      // new y is higher than previous floor and player hasn't jumped enough
-      if (newFloor > floor && p.y < newFloor) {
-        var velocityReset = false;
-        
-        // changed voxels on the x axis
-        for (var i = 0; i < voxelsP.length; i++){
-          var voxelP = voxelsP[i].voxely;
-          var newVoxelP = newVoxelsP[i].voxely;
-          if (voxelP.x != newVoxelP.x){
-            rotatedVelocity.x = 0;
-            velocityReset = true;
-            break;
-          }
-        }
-
-        // changed voxels on the z axis
-        for (var i = 0; i < voxelsP.length; i++){
-          var voxelP = voxelsP[i].voxely;
-          var newVoxelP = newVoxelsP[i].voxely;
-          if (voxelP.z != newVoxelP.z){
-            rotatedVelocity.z = 0;
-            velocityReset = true;
-            break;
-          }
-        }
-
-        // if velocity is reset, we re-run predictions before testing vertical velocity
-        if (velocityReset) {
-          // if avoidCollisions has been called once from inside
-          // and is being called again, something is very wrong
-          if (avoided) {
-            log('damn it, carl');
-            return;
-          }
-          avoided = true;
-          avoidCollisions();
-          return;
-        }
-      }
-  
-      if (p.y < newFloor) {
-        rotatedVelocity.y = 0;
-        yawObject.position.y = newFloor;
-        canJump = true;
-      }
-    };
-
-    avoidCollisions();
+    avoided = false;
+    avoidCollisions(rotatedVelocity, floor, voxelsP);
 
     setRotatedVelocity(rotatedVelocity);
     yawObject.position.add(rotatedVelocity);
