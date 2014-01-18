@@ -174,13 +174,11 @@ class Map
 
     voxelSize = 100
     chunkSize = 32
-    # chunkSize = 48
     chunkDistance = 2
 
     @config = {chunkSize, voxelSize, chunkDistance}
 
     @chunks = {}
-    @chunkArray = []
 
     @mesher = new Mesher {THREE, voxelSize, chunkSize}
     
@@ -270,8 +268,6 @@ class Map
       xArray: [startX...endX]
       getY: (x, z) => @getY(x, z)
 
-    @chunkArray.push mesh
-
     game.scene.add mesh
 
   deleteChunk: (chunkX, chunkZ) ->
@@ -279,10 +275,6 @@ class Map
     if mesh
       @game.scene.remove(mesh)
       delete @chunks["#{chunkX},#{chunkZ}"]
-
-      index = @chunkArray.indexOf mesh
-      @chunkArray.splice(index, 1) unless index < 0
-
       mesh.geometry.dispose()
       delete mesh.data
       delete mesh.geometry
