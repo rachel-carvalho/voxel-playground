@@ -16,22 +16,41 @@ class Game
   
       @scene = @createScene()
   
-      @controls = @createControls()
+      @avatar = @createAvatar()
       
       @renderer = @createRenderer()    
       
       @stats = @createStats()
 
-      @ray = @createRay()
-
       window.addEventListener "resize", @onWindowResize, false
-      
+
       @animate()
 
-  getCameraYAt: (x, z) ->
+  createAvatar: ->
+    {THREE} = this
     {voxelSize} = @map.config
 
-    y = (@map.getY(x, z) * voxelSize) + voxelSize * 2
+    width = voxelSize / 2
+    height = voxelSize * 1.7
+
+    g = new THREE.CubeGeometry width, height, width
+
+    mat = new THREE.MeshLambertMaterial color: 0x0000cc
+
+    avatar = new THREE.Mesh g, mat
+    y = height / 2
+    avatar.position.y = y
+
+    @controls = @createControls(avatar)
+
+    @controls.yawObject.add avatar
+
+    avatar
+
+  getAvatarY: (x, z) ->
+    {voxelSize} = @map.config
+
+    y = ((@map.getY(x, z) + 0.5) * voxelSize)
 
     y
 
@@ -40,16 +59,9 @@ class Game
     
     new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 20000)
 
-  createRay: ->
+  createControls: (avatar) ->
     {THREE} = this
-    
-    ray = new THREE.Raycaster()
-    ray.ray.direction.set 0, -1, 0
-
-    ray
-
-  createControls: ->
-    {THREE} = this
+    {voxelSize} = @map.config
 
     element = document.body
     pointerlockchange = (event) =>
@@ -65,11 +77,18 @@ class Game
       element.requestPointerLock()
     , false
 
-    controls = new THREE.PointerLockControls @camera
+    controls = new THREE.PointerLockControls
+      camera: @camera
+      avatar: avatar
+      voxelSize: voxelSize
+      threelyToVoxelyCoords: (c) => @map.threelyToVoxelyCoords(c)
+      getAvatarY: (x, z) => @getAvatarY(x, z)
 
-    controls.getObject().position.y = @getCameraYAt 0, 0
+    controls.getObject().position.y = @getAvatarY 0, 0
 
     @scene.add controls.getObject()
+
+    controls.pitchObject.position.y = voxelSize * 1.5
 
     controls
 
@@ -93,7 +112,6 @@ class Game
     renderer = new THREE.WebGLRenderer(antialias: true)
     renderer.setClearColor 0xf2c8b8
     renderer.setSize window.innerWidth, window.innerHeight
-    
     @container.appendChild renderer.domElement
     
     renderer
@@ -118,18 +136,10 @@ class Game
     window.requestAnimationFrame game.animate
     game.render()
 
-  updateControls: ->
-    {voxelSize} = @map.config
-    {x, z} = @controls.getObject().position
-    x = Math.floor(x / voxelSize)
-    z = Math.floor(z / voxelSize)
-    floor = @getCameraYAt x, z
-    @controls.update @clock.getDelta() * 1000, floor
-
   render: ->
     @stats.update()
     @map.updateChunks(@controls.getObject().position)
-    @updateControls()
+    @controls.update @clock.getDelta() * 1000
     @renderer.render @scene, @camera
 
 
@@ -167,12 +177,21 @@ class Map
     
     img
 
-  getChunkyCoords: (threelyCoords) ->
+  threelyToVoxelyCoords: (threelyCoords) ->
+    {voxelSize} = @config
+
     {x, z} = threelyCoords
-    {voxelSize, chunkSize} = @config
     
-    x: Math.floor x / voxelSize / chunkSize
-    z: Math.floor z / voxelSize / chunkSize
+    x: Math.floor x / voxelSize
+    z: Math.floor z / voxelSize
+
+  getChunkyCoords: (threelyCoords) ->
+    {chunkSize} = @config
+
+    voxelCoords = @threelyToVoxelyCoords threelyCoords
+    
+    x: Math.floor voxelCoords.x / chunkSize
+    z: Math.floor voxelCoords.z / chunkSize
   
   getY: (x, z) ->
     i = (@zoneWidth * z + x) << 2
