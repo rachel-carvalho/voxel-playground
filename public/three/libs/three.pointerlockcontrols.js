@@ -2,9 +2,15 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
-THREE.PointerLockControls = function ( camera ) {
+THREE.PointerLockControls = function ( opts ) {
 
   var scope = this;
+
+  var camera = opts.camera;
+  var avatar = opts.avatar;
+  var getAvatarYAt = opts.getAvatarYAt;
+  var voxelSize = opts.voxelSize;
+  var threelyToVoxelCoords = opts.threelyToVoxelCoords;
 
   camera.rotation.set( 0, 0, 0 );
 
@@ -149,18 +155,43 @@ THREE.PointerLockControls = function ( camera ) {
     velocity.set(v.x, v.y, v.z);
   };
 
-  this.update = function ( opts ) {
+  var getBounds2D = function(mesh, velocity) {
+    var w = mesh.geometry.width;
+    var d = mesh.geometry.depth;
+
+    var bounds = [];
+    for (var x = 0; x < 2; x++){
+      for (var z = 0; z < 2; z++){
+        // var point = mesh.localToWorld(new THREE.Vector3(w * x, 0, d * z));
+        var point = yawObject.position.clone().add(mesh.position).add(new THREE.Vector3(w * (x + 0.5), 0, d * (z + 0.5)));
+        
+        if (velocity) point.add(velocity);
+        
+        bounds.push({
+          threely: point,
+          voxely: threelyToVoxelCoords(point)
+        });
+      }
+    }
+
+    return bounds;
+  };
+
+  var getHighestFloor = function(bounds) {
+    var floor = 0;
+    for (var i = 0; i < bounds.length; i++)
+      floor = Math.max(floor, getAvatarYAt(bounds[i].voxely.x, bounds[i].voxely.z));
+    return floor;
+  };
+
+  var logBounds = false;
+  this.toggleLogBounds = function() {
+    logBounds = !logBounds;
+  };
+
+  this.update = function ( delta ) {
 
     if ( scope.enabled === false ) return;
-
-    var delta = opts.delta;
-    var getAvatarYAt = opts.getAvatarYAt;
-    var voxelSize = opts.voxelSize;
-    var threelyToVoxelCoords = opts.threelyToVoxelCoords;
-
-    var p = yawObject.position.clone();
-    var voxelP = threelyToVoxelCoords(p);
-    var floor = getAvatarYAt(voxelP.x, voxelP.z);
 
     delta *= 0.1;
 
@@ -182,29 +213,45 @@ THREE.PointerLockControls = function ( camera ) {
     var rotatedVelocity = getRotatedVelocity();
 
     var avoided = false;
+
+    var voxelsP = getBounds2D(avatar);
+    var floor = getHighestFloor(voxelsP);
+
     var avoidCollisions = function(){
-      p = yawObject.position.clone();
+      var p = yawObject.position.clone();
       p.add(rotatedVelocity);
   
       // new voxel and floor
-      var newVoxelP = threelyToVoxelCoords(p);
-      var newFloor = getAvatarYAt(newVoxelP.x, newVoxelP.z);
-  
+      var newVoxelsP = getBounds2D(avatar, rotatedVelocity);
+      var newFloor = getHighestFloor(newVoxelsP);
+
+      if (logBounds)
+        log(voxelsP, floor, newVoxelsP, newFloor);
+      
       // new y is higher than previous floor and player hasn't jumped enough
       if (newFloor > floor && p.y < newFloor) {
-        // log('new y is higher than previous floor and player hasnt jumped enough', newFloor, floor, p)
-        
         var velocityReset = false;
+        
         // changed voxels on the x axis
-        if (voxelP.x != newVoxelP.x){
-          rotatedVelocity.x = 0;
-          velocityReset = true;
+        for (var i = 0; i < voxelsP.length; i++){
+          var voxelP = voxelsP[i].voxely;
+          var newVoxelP = newVoxelsP[i].voxely;
+          if (voxelP.x != newVoxelP.x){
+            rotatedVelocity.x = 0;
+            velocityReset = true;
+            break;
+          }
         }
 
         // changed voxels on the z axis
-        if (voxelP.z != newVoxelP.z){
-          rotatedVelocity.z = 0;
-          velocityReset = true;
+        for (var i = 0; i < voxelsP.length; i++){
+          var voxelP = voxelsP[i].voxely;
+          var newVoxelP = newVoxelsP[i].voxely;
+          if (voxelP.z != newVoxelP.z){
+            rotatedVelocity.z = 0;
+            velocityReset = true;
+            break;
+          }
         }
 
         // if velocity is reset, we re-run predictions before testing vertical velocity
@@ -223,7 +270,7 @@ THREE.PointerLockControls = function ( camera ) {
   
       if (p.y < newFloor) {
         rotatedVelocity.y = 0;
-        yawObject.position.y = newFloor;
+        // yawObject.position.y = newFloor;
         canJump = true;
       }
     };

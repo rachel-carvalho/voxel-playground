@@ -36,7 +36,7 @@ class Game
   
       @scene = @createScene()
   
-      @controls = @createControls()
+      @avatar = @createAvatar()
       
       @renderer = @createRenderer()    
       
@@ -46,9 +46,8 @@ class Game
 
       window.addEventListener "resize", @onWindowResize, false
 
-      @controls.getObject().position.set 15695.61482848381, 23450, 45625.18956538584
-
-      @createAvatar()
+      # @controls.getObject().position.set 15695.61482848381, 23450, 45625.18956538584
+      @controls.yawObject.position.set 19679, 22650, 51750
 
       @animate()
 
@@ -56,19 +55,24 @@ class Game
     {THREE} = this
     {voxelSize} = @map.config
 
-    @avatarWidth = width = voxelSize / 2
+    width = voxelSize / 2
     height = voxelSize * 1.7
 
     g = new THREE.CubeGeometry width, height, width
 
     mat = new THREE.MeshLambertMaterial color: 0x0000cc
 
-    window.av = avatar = new THREE.Mesh g, mat
+    avatar = new THREE.Mesh g, mat
     y = height / 2
     avatar.position.y = y
+
+    @controls = @createControls(avatar)
+
     @controls.yawObject.add avatar
 
-    @controls.pitchObject.position.y += 100
+    @controls.pitchObject.position.z += 100
+
+    avatar
 
   getAvatarYAt: (x, z) ->
     {voxelSize} = @map.config
@@ -91,7 +95,7 @@ class Game
 
     ray
 
-  createControls: ->
+  createControls: (avatar) ->
     {THREE} = this
     {voxelSize} = @map.config
 
@@ -109,7 +113,13 @@ class Game
       element.requestPointerLock()
     , false
 
-    controls = new THREE.PointerLockControls @camera
+    controls = new THREE.PointerLockControls
+      camera: @camera
+      avatar: avatar
+      voxelSize: voxelSize
+      threelyToVoxelCoords: (c) => @map.threelyToVoxelCoords(c)
+      getAvatarYAt: (x, z) => @getAvatarYAt(x, z)
+
 
     controls.getObject().position.y = @getAvatarYAt 0, 0
 
@@ -196,12 +206,7 @@ class Game
 
   updateControls: ->
     if @controls.enabled
-
-      @controls.update 
-        delta: @clock.getDelta() * 1000
-        voxelSize: @map.config.voxelSize
-        threelyToVoxelCoords: (c) => @map.threelyToVoxelCoords(c)
-        getAvatarYAt: (x, z) => @getAvatarYAt(x, z)
+      @controls.update @clock.getDelta() * 1000
 
   render: ->
     @stats.update()
