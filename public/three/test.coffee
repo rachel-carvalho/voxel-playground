@@ -161,14 +161,10 @@ class Game
     window.requestAnimationFrame game.animate
     game.render()
 
-  updateControls: ->
-    if @controls.enabled
-      @controls.update @clock.getDelta() * 1000
-
   render: ->
     @stats.update()
     @map.updateChunks(@controls.getObject().position)
-    @updateControls()
+    @controls.update @clock.getDelta() * 1000
     @renderer.render @scene, @camera
 
 
